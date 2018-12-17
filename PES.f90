@@ -14,7 +14,7 @@ end subroutine V_HO
 subroutine V_QUAR(V,x)
     real(8), intent(out) :: V
     real(8), intent(in) :: x
-    V = 0.5_8 * x*x
+    V = 0.25_8 * x**4
     return
 end subroutine V_QUAR
 

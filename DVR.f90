@@ -160,6 +160,14 @@ implicit none
     call finite_DVR(xmin, xmax, Nx, Es, Vs)
     print *, Es(1:10)
     
+    open(unit=222,file='eigv.dat',status='replace')
+    do i=1,Nx-1
+        write(222,*) Vs(i,:)
+    enddo
+    close(unit=222)
+
+    stop 'debug'
+
     do i=1,Nx-1
         ! x = xmin + (xmax-xmin) * i / real(Nx)
         do j=1,Np-1
