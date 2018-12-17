@@ -139,15 +139,14 @@ end module DVR
 program numerical_wigner
 use DVR
 implicit none
-    integer :: Nx
-    integer :: Np
-    real(8) :: L, xmin, xmax, pmin, pmax, x, p, dx, tmp, beta
+    integer :: Nx, Np, cutoff
+    real(8) :: L, xmin, xmax, pmin, pmax, x, p, dx, myeps, tmp, beta, Z
     real(8), allocatable :: Es(:), Vs(:,:), rho(:,:)
     integer :: i,j,k,m,ixmd,ixpd
     
     beta = 8
     Nx = 200
-    NP = 200
+    Np = 200
     xmin = -10
     xmax = 10
     pmin = -10
@@ -170,20 +169,41 @@ implicit none
     close(unit=111)
     close(unit=222)
 
+    cutoff = 10
+    myeps = 10e-10
+    Z = 0 !-- partion function
+    do k=1,cutoff
+        Z = Z + exp(-beta*Es(k))
+        if(abs(Vs(1,k)) > myeps .or. abs(Vs(Nx-1,k)) > myeps ) then
+            stop 'cutoff may cause error'
+        endif 
+    enddo
+    if(exp(-beta*(Es(cutoff)-Es(1))) > myeps) then
+        stop 'cutoff may cause error'
+    endif
+    
+    !-- calculate wigner distribution numerically
     do i=1,Nx-1 !-- without data at xmin & xmax
         ! x = xmin + (xmax-xmin) * i / real(Nx)
         do j=1,Np-1 !-- without data at pmin & pmax
-            ! p = pmin + (pmax-pmin) * j /real(Np)
+            p = pmin + (pmax-pmin) * j /real(Np)
             rho(i,j) = 0
-            do k=1,10
+            do k=1,cutoff
                 tmp = 0
-                do m=0, min(i,Nx-i)
+                do m= -min(i-1,Nx-i-1), min(i-1,Nx-i-1) 
+                    !-- we assume that Vs(1,:) and Vs(Nx-1,:) is enough 
+                    !-- small, so the integral contribution is zero 
                     tmp = tmp + Vs(i+m,k)*Vs(i-m,k)*cos(2*m*dx*p)*2*dx
                 enddo
-                rho(i,j) = rho(i,j) + exp(-beta*Es(k)) * tmp
+                rho(i,j) = rho(i,j) + exp(-beta*Es(k)) * 0.5*tmp !-- half factor from 1/2*pi*hbar
             enddo
         enddo
     enddo
+    
+    !print *, 'x=0,p=0   :', rho(100,100)
+    !print *, 'x=0,p=-5  :', rho(100,50)
+    !print *, 'x=-5,p=0  :', rho(50,100)
+    !stop 'debug'
 
     open(unit=222, file='rho.dat',status='replace')
     do i=1,Nx-1
@@ -195,15 +215,6 @@ implicit none
     deallocate(Es,Vs,Rho)
     call del_DVR()
 end program numerical_wigner
-
-
-
-
-
-
-
-
-
 
 
 
