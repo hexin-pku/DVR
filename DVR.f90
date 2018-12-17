@@ -4,7 +4,7 @@ use linalgebra, only : lin_ev
 use PES, V=>V_HO
 implicit none
 private
-    real(8), parameter :: M = 1.0_8
+    real(8), parameter :: M = 1.0000000_8
     integer :: N
     real(8) :: a, b
     real(8), allocatable :: x(:), H(:,:)
@@ -17,26 +17,26 @@ subroutine finite_DVR(input_a, input_b, input_N, Es, Vs)
     integer, intent(in) :: input_N
     real(8), intent(in) :: input_a, input_b
     real(8), intent(out) :: Es(input_N-1), Vs(input_N-1, input_N-1)
-    real(8) :: dx, coeff, tmp_V
+    real(8) :: dx, coeff, tmp_V, nmc
     integer :: i,j
     
     a = input_a
     b = input_b
     N = input_N
-    coeff = 0.5/M /(b-a)**2 * 0.5*pi2
+    coeff = 0.5_8 /(b-a)**2 * 0.5_8*pi**2
     
     if(.not. allocated(x) ) allocate(x(N-1), H(N-1,N-1))
     
-    dx = (b-a) / real(N)
+    dx = real(b-a) / real(N,kind=8)
     do i=1,N-1
-        x(i) = a + i*dx
+        x(i) = a + real(i)*dx
     enddo
     
     do i=1,N-1
-        H(i,i) = coeff * ( (2*N*N+1)/real(3) - 1.0 / sin(pi*i/real(N))**2 )
+        H(i,i) = coeff * ( real(2*N**2+1,kind=8)/real(3,kind=8) - 1.0_8 / sin(pi*i/real(N))**2 )
         do j=i+1,N-1
-            H(i,j) = coeff * (-1)**(i-j) * ( 1.0 / sin(pi*(i-j)/real(2*N))**2 &
-                             - 1.0 / sin(pi*(i+j)/real(2*N))**2 )
+            H(i,j) = coeff * ((-1.0_8)**(i-j)) * ( 1.0_8 / dsin(pi*(i-j)/real(2*N))**2 &
+                             - 1.0_8 / dsin(pi*(i+j)/real(2*N))**2 )
             H(j,i) = H(i,j)
         enddo
     enddo
@@ -45,8 +45,8 @@ subroutine finite_DVR(input_a, input_b, input_N, Es, Vs)
         call V(tmp_V, x(i))
         H(i,i) = H(i,i) + tmp_V
     enddo 
-    
-    call lin_ev(Es, Vs, H)    
+
+    call lin_ev(Es, Vs, H)
     return
 end subroutine finite_DVR 
 
@@ -122,7 +122,7 @@ subroutine half_infinite_DVR(input_L, input_N, Es, Vs)
     do i=1,N-1
         call V(tmp_V, x(i))
         H(i,i) = H(i,i) + tmp_V
-    enddo 
+    enddo
     
     call lin_ev(Es, Vs, H)    
     return
@@ -138,9 +138,10 @@ end module DVR
 
 program numerical_wigner
 use DVR
+use const, only : twopi
 implicit none
     integer :: Nx, Np, cutoff
-    real(8) :: L, xmin, xmax, pmin, pmax, x, p, dx, myeps, tmp, beta, Z
+    real(8) :: L, xmin, xmax, pmin, pmax, x, p, dx, dp, myeps, tmp, beta, Z
     real(8), allocatable :: Es(:), Vs(:,:), rho(:,:)
     integer :: i,j,k,m,ixmd,ixpd
     
@@ -153,12 +154,15 @@ implicit none
     pmax = 10
 
     dx = (xmax-xmin) / real(Nx)
+    dp = (pmax-pmin) / real(Np)
     
     allocate(Es(Nx-1), Vs(Nx-1,Nx-1),rho(Nx-1, Np-1))
     
     call finite_DVR(xmin, xmax, Nx, Es, Vs)
-    ! print *, Es(1)        !-- for example, the ground energy
-    ! print *, Vs(:,1)      !-- for example, the ground state
+    print *, Es(1:10)        !-- for example, stand the ground energy
+    ! print *, Vs(:,1)      !-- for example, stand the ground state
+    !-- normalization of Vectors
+    Vs = Vs / dsqrt(dx)
     
     open(unit=111,file='eige.dat',status='replace')
     open(unit=222,file='eigv.dat',status='replace')
@@ -169,17 +173,17 @@ implicit none
     close(unit=111)
     close(unit=222)
 
-    cutoff = 10
+    cutoff = 1
     myeps = 10e-10
     Z = 0 !-- partion function
     do k=1,cutoff
-        Z = Z + exp(-beta*Es(k))
+        Z = Z + dexp(-beta*Es(k))
         if(abs(Vs(1,k)) > myeps .or. abs(Vs(Nx-1,k)) > myeps ) then
             stop 'cutoff may cause error'
         endif 
     enddo
-    if(exp(-beta*(Es(cutoff)-Es(1))) > myeps) then
-        stop 'cutoff may cause error'
+    if(dexp(-beta*(Es(cutoff)-Es(1))) > myeps) then
+        print *, 'warning: cutoff may cause error'
     endif
     
     !-- calculate wigner distribution numerically
@@ -193,12 +197,15 @@ implicit none
                 do m= -min(i-1,Nx-i-1), min(i-1,Nx-i-1) 
                     !-- we assume that Vs(1,:) and Vs(Nx-1,:) is enough 
                     !-- small, so the integral contribution is zero 
-                    tmp = tmp + Vs(i+m,k)*Vs(i-m,k)*cos(2*m*dx*p)*2*dx
+                    tmp = tmp + Vs(i+m,k)*Vs(i-m,k)*dcos(2*m*dx*p)*2*dx
                 enddo
-                rho(i,j) = rho(i,j) + exp(-beta*Es(k)) * 0.5*tmp !-- half factor from 1/2*pi*hbar
+                rho(i,j) = rho(i,j) + dexp(-beta*Es(k)) * tmp 
             enddo
         enddo
     enddo
+    !-- normalization and check normalization
+    rho = rho / (twopi * Z) 
+    print *, sum(rho)*dx*dp
     
     !print *, 'x=0,p=0   :', rho(100,100)
     !print *, 'x=0,p=-5  :', rho(100,50)
