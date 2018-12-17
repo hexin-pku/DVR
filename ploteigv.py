@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 a=pd.read_csv('eigv.dat',header=None,sep= '\s+').values
 a=a.T
-for i in range(len(a)):
+for i in range(5):
     lenrange = len(a[i])
     x = np.linspace(-10,10,lenrange)
     ps = a[i]

@@ -158,39 +158,41 @@ implicit none
     allocate(Es(Nx-1), Vs(Nx-1,Nx-1),rho(Nx-1, Np-1))
     
     call finite_DVR(xmin, xmax, Nx, Es, Vs)
-    print *, Es(1:10)
+    ! print *, Es(1)        !-- for example, the ground energy
+    ! print *, Vs(:,1)      !-- for example, the ground state
     
+    open(unit=111,file='eige.dat',status='replace')
     open(unit=222,file='eigv.dat',status='replace')
     do i=1,Nx-1
-        write(222,*) Vs(i,:)
+        write(111,*) Es(i)
+        write(222,*) Vs(:,i)
     enddo
+    close(unit=111)
     close(unit=222)
 
-    stop 'debug'
-
-    do i=1,Nx-1
+    do i=1,Nx-1 !-- without data at xmin & xmax
         ! x = xmin + (xmax-xmin) * i / real(Nx)
-        do j=1,Np-1
-            p = pmin + (pmax-pmin) * j /real(Np)
+        do j=1,Np-1 !-- without data at pmin & pmax
+            ! p = pmin + (pmax-pmin) * j /real(Np)
             rho(i,j) = 0
-            do k=1, 10
+            do k=1,10
                 tmp = 0
                 do m=0, min(i,Nx-i)
-                    tmp = tmp + Vs(k,i+m)*Vs(k,i-m)*cos(2*m*dx*p)*2*dx
+                    tmp = tmp + Vs(i+m,k)*Vs(i-m,k)*cos(2*m*dx*p)*2*dx
                 enddo
                 rho(i,j) = rho(i,j) + exp(-beta*Es(k)) * tmp
             enddo
         enddo
     enddo
 
-    open(unit=222, file='dist.dat',status='replace')
+    open(unit=222, file='rho.dat',status='replace')
     do i=1,Nx-1
     write(222,*) rho(i,:)
     enddo 
     close(unit=222)  
 
 
-    deallocate(Es,Vs)
+    deallocate(Es,Vs,Rho)
     call del_DVR()
 end program numerical_wigner
 
