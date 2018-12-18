@@ -145,7 +145,7 @@ implicit none
     real(8), allocatable :: Es(:), Vs(:,:), rho(:,:)
     integer :: i,j,k,m,ixmd,ixpd
     
-    beta = 8
+    beta = 8.0_8
     Nx = 200
     Np = 200
     xmin = -10
@@ -173,7 +173,7 @@ implicit none
     close(unit=111)
     close(unit=222)
 
-    cutoff = 1
+    cutoff = 10
     myeps = 10e-10
     Z = 0 !-- partion function
     do k=1,cutoff
